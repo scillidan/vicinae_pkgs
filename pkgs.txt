@@ -1,0 +1,25 @@
+# https://www.vicinae.com/extensions/alan7a/case-converter
+# alan7a/case-converter
+
+https://www.vicinae.com/extensions/tadassuksteris/prompt-deck
+https://www.vicinae.com/extensions/selfxplanatorium/fff-search
+https://www.vicinae.com/extensions/jaintp/vscrot
+https://www.vicinae.com/extensions/omermohideen/custom-commands
+https://www.vicinae.com/extensions/asd2003ru/number-converter
+https://www.vicinae.com/extensions/shadercompilation/simple-bookmarks
+https://www.vicinae.com/extensions/codingcodax/html-symbol-finder
+https://www.vicinae.com/extensions/nino-mau/iconify
+https://www.vicinae.com/extensions/alan7a/case-converter
+https://www.vicinae.com/extensions/costeer/color-converter
+https://www.vicinae.com/extensions/nikbpetrov/it-tools
+
+https://www.vicinae.com/extensions/knoopx/systemd
+https://www.vicinae.com/extensions/dagimg-dot/wifi-commander
+https://www.vicinae.com/extensions/gelei/bluetooth
+https://www.vicinae.com/extensions/leonkohli/process-manager
+https://www.vicinae.com/extensions/rastsislaux/pulseaudio
+https://www.vicinae.com/extensions/mmstroik/kde-system-settings
+https://www.vicinae.com/extensions/luggapugga/port-killer
+https://www.vicinae.com/extensions/xevrion/clean-keyboard
+https://www.vicinae.com/extensions/tiagem/coffee
+https://www.vicinae.com/extensions/sameoldlab/fuzzy-files
