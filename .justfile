@@ -10,7 +10,8 @@ fetch:
 list *args:
     ./pkg.sh list {{args}}
 
-# Re-fetch and install into Vicinae: current OS by default, or --win / --linux / --macos / --all
+# Re-fetch and install into Vicinae: all links by default, or only the named pkgs.
+# OS by default, or --win / --linux / --macos / --all
 install *args:
     ./pkg.sh install {{args}}
 

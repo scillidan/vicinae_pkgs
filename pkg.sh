@@ -8,7 +8,7 @@
 # Usage:
 #   pkg.sh fetch                 download bundles + metadata for every link in pkgs.txt
 #   pkg.sh list  [--win|--linux|--macos]   list fetched pkgs (default: all)
-#   pkg.sh install [--win|--linux|--macos|--all]   re-fetch + install (default: current OS)
+#   pkg.sh install [--win|--linux|--macos|--all] [<name>...]   re-fetch + install (default: current OS, all links)
 #   pkg.sh uninstall [--win|--linux|--macos|--all] <name>...   uninstall + drop from pkgs.txt
 set -eu
 cd "$(dirname "$0")"
@@ -101,13 +101,33 @@ cmd_list() {
 	done
 }
 
-cmd_install() {
+cmd_install() {      # $1 = optional OS flag(s), rest = name / author/name / link (default: every link)
 	mkdir -p cache pkgs # install may run before any fetch
-	filter="$(os_filter "${1:-}" "$(os_now)")"
+	filter="$(os_now)"
+	while [ $# -gt 0 ] && [ "${1#--}" != "$1" ]; do
+		filter="$(os_filter "$1" "$(os_now)")"
+		shift
+	done
 	ext="${EXT_DIR:-$(ext_dir_for "$([ "$filter" = all ] && os_now || echo "$filter")")}"
 	mkdir -p "$ext"
 	echo "target: $filter  ->  $ext"
-	each_link | while read -r link; do
+
+	if [ $# -gt 0 ]; then # only the named pkgs
+		links=""
+		for arg in "$@"; do
+			name="$(norm_id "$arg")"
+			name="${name##*/}"
+			link="$(each_link | awk -F/ -v n="$name" '$NF == n { print; exit }')"
+			[ -n "$link" ] || die "not in pkgs.txt: $arg"
+			links="$links$link
+"
+		done
+	else
+		links="$(each_link)"
+	fi
+
+	printf '%s\n' "$links" | while read -r link; do
+		[ -n "$link" ] || continue
 		name="$(norm_id "$link" | awk -F/ '{print $NF}')"
 		[ -n "$name" ] && [ "$name" != ".." ] || {
 			echo "  skip bad line: $link"
@@ -189,5 +209,5 @@ uninstall)
 	shift
 	cmd_uninstall "$@"
 	;;
-*) die "usage: pkg.sh fetch | list [--win|--linux|--macos] | install [--win|--linux|--macos|--all] | uninstall [--win|--linux|--macos|--all] <name>..." ;;
+*) die "usage: pkg.sh fetch | list [--win|--linux|--macos] | install [--win|--linux|--macos|--all] [<name>...] | uninstall [--win|--linux|--macos|--all] <name>..." ;;
 esac
