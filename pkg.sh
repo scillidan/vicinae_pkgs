@@ -8,7 +8,8 @@
 # Usage:
 #   pkg.sh fetch                 download bundles + metadata for every link in pkgs.txt
 #   pkg.sh list  [--win|--linux|--macos]   list fetched pkgs (default: all)
-#   pkg.sh update [--win|--linux|--macos|--all]   re-fetch + install (default: current OS)
+#   pkg.sh install [--win|--linux|--macos|--all]   re-fetch + install (default: current OS)
+#   pkg.sh uninstall [--win|--linux|--macos|--all] <name>...   uninstall + drop from pkgs.txt
 set -eu
 cd "$(dirname "$0")"
 API="https://api.vicinae.com/v1/store"
@@ -30,9 +31,18 @@ os_now() {
 
 ext_dir_for() { # $1 = target OS -> that OS's Vicinae extension dir
 	case "$1" in
-	Windows) cygpath -u "$LOCALAPPDATA/vicinae/data/extensions" ;;
+	Windows)
+		[ -n "${LOCALAPPDATA:-}" ] && command -v cygpath >/dev/null 2>&1 || return 0
+		cygpath -u "$LOCALAPPDATA/vicinae/data/extensions"
+		;;
 	*) echo "${XDG_DATA_HOME:-$HOME/.local/share}/vicinae/extensions" ;;
 	esac
+}
+
+os_filter() { # $1 = --win/--linux/--macos/--all flag (may be empty), $2 = fallback OS
+	f="${2:-all}"
+	[ -n "${1:-}" ] && f="$(echo "$1" | sed 's/^--//; s/^win$/Windows/; s/^linux$/Linux/; s/^macos$/macOS/')"
+	echo "$f"
 }
 
 norm_id() { # store page URL / api URL / author/name -> author/name
@@ -75,8 +85,7 @@ cmd_fetch() {
 }
 
 cmd_list() {
-	filter=all
-	[ $# -gt 0 ] && filter="$(echo "$1" | sed 's/^--//; s/^win$/Windows/; s/^linux$/Linux/; s/^macos$/macOS/')"
+	filter="$(os_filter "${1:-}" all)"
 	ls pkgs/*.json >/dev/null 2>&1 || die 'nothing fetched yet — run: pkg.sh fetch'
 	printf '%-20s %-18s %s\n' PKG PLATFORMS TITLE
 	for meta in pkgs/*.json; do
@@ -92,11 +101,9 @@ cmd_list() {
 	done
 }
 
-cmd_update() {
-	mkdir -p cache pkgs # update may run before any fetch
-	filter="$(os_now)"
-	[ -n "$filter" ] || filter=all # unknown OS -> install everything
-	[ $# -gt 0 ] && filter="$(echo "$1" | sed 's/^--//; s/^win$/Windows/; s/^linux$/Linux/; s/^macos$/macOS/')"
+cmd_install() {
+	mkdir -p cache pkgs # install may run before any fetch
+	filter="$(os_filter "${1:-}" "$(os_now)")"
 	ext="${EXT_DIR:-$(ext_dir_for "$([ "$filter" = all ] && os_now || echo "$filter")")}"
 	mkdir -p "$ext"
 	echo "target: $filter  ->  $ext"
@@ -122,15 +129,65 @@ cmd_update() {
 	echo 'restart Vicinae to pick up changes'
 }
 
+cmd_uninstall() { # $1 = optional OS flag, rest = name / author/name / link
+	[ $# -gt 0 ] || die 'usage: pkg.sh uninstall [--win|--linux|--macos|--all] <name>...'
+	case "$1" in
+	--*)
+		filter="$(os_filter "$1" "$(os_now)")"
+		shift
+		;;
+	*) filter="$(os_filter "" "$(os_now)")" ;;
+	esac
+	[ $# -gt 0 ] || die 'usage: pkg.sh uninstall [--win|--linux|--macos|--all] <name>...'
+
+	if [ -n "${EXT_DIR:-}" ]; then
+		dirs="$EXT_DIR"
+	elif [ "$filter" = all ]; then
+		dirs="$(
+			ext_dir_for Windows
+			ext_dir_for Linux
+		)" # macOS shares the XDG dir
+	else
+		dirs="$(ext_dir_for "$filter")"
+	fi
+
+	names=""
+	for arg in "$@"; do
+		name="$(norm_id "$arg")"
+		name="${name##*/}"
+		[ -n "$name" ] || continue
+		names="$names $name"
+		echo "uninstall: $name"
+		for d in $dirs; do rm -rf "$d/$name"; done
+		rm -f "cache/$name.zip" "pkgs/$name.json"
+	done
+	[ -n "$names" ] || return 0
+
+	# drop the lines too, else the next install puts them right back
+	tmp=pkgs.txt.new
+	awk -v list="$names" '
+		BEGIN { n = split(list, a, " ") }
+		{
+			line = $0; sub(/\r$/, "", line)
+			if (line !~ /^[[:space:]]*#/)
+				for (i = 1; i <= n; i++) if (line ~ ("/" a[i] "$")) next
+			print
+		}' pkgs.txt >"$tmp" && mv "$tmp" pkgs.txt
+}
+
 case "${1:-}" in
 fetch) cmd_fetch ;;
 list)
 	shift
 	cmd_list "$@"
 	;;
-update)
+install)
 	shift
-	cmd_update "$@"
+	cmd_install "$@"
 	;;
-*) die "usage: pkg.sh fetch | list [--win|--linux|--macos] | update [--win|--linux|--macos|--all]" ;;
+uninstall)
+	shift
+	cmd_uninstall "$@"
+	;;
+*) die "usage: pkg.sh fetch | list [--win|--linux|--macos] | install [--win|--linux|--macos|--all] | uninstall [--win|--linux|--macos|--all] <name>..." ;;
 esac
